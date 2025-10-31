@@ -1,0 +1,6 @@
+apple
+other
+world
+would
+sound
+alert

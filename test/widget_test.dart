@@ -4,7 +4,7 @@ import 'package:nulldle/main.dart';
 
 /// Minimal local stub for GameScreen used by tests when the package file is missing.
 class GameScreen extends StatelessWidget {
-  const GameScreen({Key? key}) : super(key: key);
+  const GameScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
