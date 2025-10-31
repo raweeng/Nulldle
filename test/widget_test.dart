@@ -4,9 +4,10 @@ import 'package:nulldle/main.dart';
 import 'package:nulldle/game_screen.dart';
 
 void main() {
-  testWidgets('HomeScreen UI elements remain consistent', (WidgetTester tester) async {
+  testWidgets('HomeScreen UI elements remain consistent',
+      (WidgetTester tester) async {
     // Pump the widget tree
-    await tester.pumpWidget(WordleApp());
+    await tester.pumpWidget(const MyApp());
 
     // Title
     expect(find.text('Nulldle'), findsOneWidget);
@@ -31,7 +32,8 @@ void main() {
     expect(find.byType(GameScreen), findsOneWidget);
   });
 
-  testWidgets('GameScreen UI elements remain consistent', (WidgetTester tester) async {
+  testWidgets('GameScreen UI elements remain consistent',
+      (WidgetTester tester) async {
     // Pump GameScreen
     await tester.binding.setSurfaceSize(const Size(1080, 1920));
     await tester.pumpWidget(
@@ -49,7 +51,10 @@ void main() {
 
     // Grid of 6 rows × 5 columns = 30 tiles
     find.byWidgetPredicate(
-      (widget) => widget is Container && widget.decoration is BoxDecoration && (widget).constraints == null,
+      (widget) =>
+          widget is Container &&
+          widget.decoration is BoxDecoration &&
+          (widget).constraints == null,
     );
     expect(find.byType(Container), findsWidgets);
 
