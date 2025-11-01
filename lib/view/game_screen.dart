@@ -6,12 +6,20 @@ import '../model/tile_status.dart';
 import '../viewmodel/game_view_model.dart';
 
 /// The main play screen for the Nulldle/Wordle game.
+///
+/// This stateless widget consumes the [GameViewModel] provided higher up
+/// in the widget tree via [Provider]. It displays a 6×5 grid of previous
+/// guesses, an input row for the current guess, and controls to submit a
+/// guess or start a new game. When the game is over it shows a message
+/// revealing whether the player won or lost and the correct word.
 class GameScreen extends StatelessWidget {
   const GameScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // The game screen does not show a traditional AppBar.  We build our own
+      // top bar with a back button and navigation icons below.
       backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -20,18 +28,24 @@ class GameScreen extends StatelessWidget {
             return Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                // Top bar: back button and icons for stats & settings
                 _buildTopOptions(context),
                 const SizedBox(height: 8),
+                // 6×5 grid of guesses and current guess
                 _buildGuessGrid(vm),
+                // Show win/lose message at game end
                 if (vm.isGameOver) ...[
                   const SizedBox(height: 16),
                   _buildResultMessage(vm),
                 ],
                 const SizedBox(height: 24),
+                // Text field for input (with clear button)
                 _buildTextField(vm, context),
                 const SizedBox(height: 16),
+                // Row of Submit / New Game buttons
                 _buildActionButtons(vm, context),
                 const SizedBox(height: 24),
+                // On-screen keyboard (visual only)
                 _buildKeyboard(),
               ],
             );
@@ -41,6 +55,8 @@ class GameScreen extends StatelessWidget {
     );
   }
 
+  /// Build the 6×5 grid of guesses. Completed guesses show colour statuses;
+  /// the current guess shows as border-only; unused rows show empty tiles.
   Widget _buildGuessGrid(GameViewModel vm) {
     final rows = <Widget>[];
     for (var i = 0; i < 6; i++) {
@@ -70,6 +86,7 @@ class GameScreen extends StatelessWidget {
     return Column(children: rows);
   }
 
+  /// Build a single row of tiles for a completed guess.
   Widget _buildGuessRow(Guess guess) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -79,6 +96,7 @@ class GameScreen extends StatelessWidget {
     );
   }
 
+  /// Build an individual tile showing a letter and its status.
   Widget _buildTile(String letter, TileStatus status,
       {bool borderOnly = false}) {
     Color background;
@@ -109,15 +127,16 @@ class GameScreen extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         letter,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
       ),
     );
   }
 
-  /// Text field that uses a controller to reflect the current guess and shows
-  /// a clear (×) button when there is text.  Pressing the clear button
-  /// resets the current guess in the view model, and the text field
-  /// rebuilds with an empty string.
+  /// Build the text field for entering guesses.  Uses a controller to
+  /// reflect the view model’s current guess and provides a clear “×” button.
   Widget _buildTextField(GameViewModel vm, BuildContext context) {
     final controller = TextEditingController(text: vm.currentGuess);
     controller.selection = TextSelection.fromPosition(
@@ -165,6 +184,8 @@ class GameScreen extends StatelessWidget {
     );
   }
 
+  /// Build the Submit and New Game buttons.  Captures the messenger
+  /// before awaiting to avoid using context across async gaps.
   Widget _buildActionButtons(GameViewModel vm, BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -194,9 +215,7 @@ class GameScreen extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         ElevatedButton(
-          onPressed: () {
-            vm.resetGame();
-          },
+          onPressed: vm.resetGame,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: Colors.pink,
@@ -215,12 +234,9 @@ class GameScreen extends StatelessWidget {
     );
   }
 
+  /// Build the on-screen keyboard (visual only).
   Widget _buildKeyboard() {
-    const keyboardRows = [
-      'QWERTYUIOP',
-      'ASDFGHJKL',
-      'ZXCVBNM',
-    ];
+    const keyboardRows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
     return Column(
       children: keyboardRows.map((row) {
         return Padding(
@@ -254,6 +270,7 @@ class GameScreen extends StatelessWidget {
     );
   }
 
+  /// Build the end-of-game message.
   Widget _buildResultMessage(GameViewModel vm) {
     final message = vm.hasWon
         ? 'You won! 🎉'
@@ -264,26 +281,39 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the top bar containing navigation options for statistics and
-  /// setting a custom word.  This replaces an AppBar to better match
-  /// the original design.
+  /// Build the top bar containing a back button and icons for statistics and
+  /// custom word settings.  The back button uses `Navigator.pushNamed` to
+  /// return to the home screen (`'/'`).
   Widget _buildTopOptions(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        // Back button on the left
         IconButton(
-          icon: const Icon(Icons.bar_chart),
-          tooltip: 'Statistics',
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
           onPressed: () {
-            Navigator.pushNamed(context, '/stats');
+            Navigator.pushNamed(context, '/');
           },
         ),
-        IconButton(
-          icon: const Icon(Icons.settings),
-          tooltip: 'Set Word',
-          onPressed: () {
-            Navigator.pushNamed(context, '/settings');
-          },
+        // Stats and settings icons on the right
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.bar_chart),
+              tooltip: 'Statistics',
+              onPressed: () {
+                Navigator.pushNamed(context, '/stats');
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Set Word',
+              onPressed: () {
+                Navigator.pushNamed(context, '/settings');
+              },
+            ),
+          ],
         ),
       ],
     );
