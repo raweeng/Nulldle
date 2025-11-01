@@ -4,59 +4,122 @@ import 'package:provider/provider.dart';
 import '../model/guess.dart';
 import '../model/tile_status.dart';
 import '../viewmodel/game_view_model.dart';
+import '../repository/word_repository.dart';
+import '../repository/stats_repository.dart';
 
-/// The main play screen for the Nulldle/Wordle game.
-///
-/// This stateless widget consumes the [GameViewModel] provided higher up
-/// in the widget tree via [Provider]. It displays a 6×5 grid of previous
-/// guesses, an input row for the current guess, and controls to submit a
-/// guess or start a new game. When the game is over it shows a message
-/// revealing whether the player won or lost and the correct word.
-class GameScreen extends StatelessWidget {
+/// Game screen that runs with or without Providers.
+/// - In the app, it uses the provided GameViewModel.
+/// - In tests like `MaterialApp(home: GameScreen())`, it falls back to a local VM.
+class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
 
   @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  GameViewModel? _localVm;
+
+  GameViewModel _ensureVm(BuildContext context) {
+    GameViewModel? provided;
+    try {
+      provided = Provider.of<GameViewModel>(context, listen: true);
+    } on ProviderNotFoundException {
+      provided = null;
+    }
+
+    if (provided != null) return provided;
+
+    // Tiny, deterministic VM for tests / bare usage (no assets).
+    _localVm ??= GameViewModel(
+      wordRepository: WordRepository.fromWords(
+        ['apple', 'world', 'would', 'games', 'house', 'other', 'start'],
+      ),
+      statsRepository: StatsRepository(),
+    );
+    return _localVm!;
+  }
+
+  @override
+  void dispose() {
+    _localVm?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // The game screen does not show a traditional AppBar.  We build our own
-      // top bar with a back button and navigation icons below.
-      backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Consumer<GameViewModel>(
-          builder: (context, vm, child) {
-            return Column(
+    final vm = _ensureVm(context);
+
+    // AnimatedBuilder keeps the UI reactive without requiring Provider.of here.
+    final body = AnimatedBuilder(
+      animation: vm,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // Top bar: back button and icons for stats & settings
                 _buildTopOptions(context),
                 const SizedBox(height: 8),
-                // 6×5 grid of guesses and current guess
                 _buildGuessGrid(vm),
-                // Show win/lose message at game end
                 if (vm.isGameOver) ...[
                   const SizedBox(height: 16),
                   _buildResultMessage(vm),
                 ],
                 const SizedBox(height: 24),
-                // Text field for input (with clear button)
                 _buildTextField(vm, context),
                 const SizedBox(height: 16),
-                // Row of Submit / New Game buttons
                 _buildActionButtons(vm, context),
                 const SizedBox(height: 24),
-                // On-screen keyboard (visual only)
-                _buildKeyboard(),
+                _buildKeyboard(vm), // keyboard colours mirror grid
               ],
-            );
-          },
+            ),
+          ),
+        );
+      },
+    );
+
+    // If we created a local VM, expose it to descendants.
+    if (_localVm != null) {
+      return ChangeNotifierProvider<GameViewModel>.value(
+        value: vm,
+        child: body,
+      );
+    }
+    return body;
+  }
+
+  /// Top row: back on the left, stats & settings on the right.
+  Widget _buildTopOptions(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
+          onPressed: () => Navigator.pushNamed(context, '/'),
         ),
-      ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.bar_chart),
+              tooltip: 'Statistics',
+              onPressed: () => Navigator.pushNamed(context, '/stats'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Set Word',
+              onPressed: () => Navigator.pushNamed(context, '/settings'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  /// Build the 6×5 grid of guesses. Completed guesses show colour statuses;
-  /// the current guess shows as border-only; unused rows show empty tiles.
+  /// 6×5 grid: completed / current / empty rows.
   Widget _buildGuessGrid(GameViewModel vm) {
     final rows = <Widget>[];
     for (var i = 0; i < 6; i++) {
@@ -86,17 +149,15 @@ class GameScreen extends StatelessWidget {
     return Column(children: rows);
   }
 
-  /// Build a single row of tiles for a completed guess.
   Widget _buildGuessRow(Guess guess) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: guess.letters.map((lr) {
-        return _buildTile(lr.letter.toUpperCase(), lr.status);
-      }).toList(),
+      children: guess.letters
+          .map((lr) => _buildTile(lr.letter.toUpperCase(), lr.status))
+          .toList(),
     );
   }
 
-  /// Build an individual tile showing a letter and its status.
   Widget _buildTile(String letter, TileStatus status,
       {bool borderOnly = false}) {
     Color background;
@@ -107,12 +168,12 @@ class GameScreen extends StatelessWidget {
         border = Colors.green;
         break;
       case TileStatus.present:
-        background = Colors.amber;
-        border = Colors.amber;
+        background = Colors.amberAccent.shade700; // brighter yellow
+        border = Colors.amberAccent.shade700;
         break;
       case TileStatus.absent:
-        background = borderOnly ? Colors.transparent : Colors.grey.shade400;
-        border = Colors.grey.shade400;
+        background = borderOnly ? Colors.transparent : Colors.grey.shade500;
+        border = Colors.grey.shade500;
         break;
     }
     return Container(
@@ -127,25 +188,22 @@ class GameScreen extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         letter,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 20,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
     );
   }
 
-  /// Build the text field for entering guesses.  Uses a controller to
-  /// reflect the view model’s current guess and provides a clear “×” button.
+  /// Text field with clear (×) button and async-safe submission.
   Widget _buildTextField(GameViewModel vm, BuildContext context) {
     final controller = TextEditingController(text: vm.currentGuess);
     controller.selection = TextSelection.fromPosition(
       TextPosition(offset: controller.text.length),
     );
+
     return TextField(
       controller: controller,
       maxLength: 5,
-      onChanged: (v) => vm.updateCurrentGuess(v),
+      onChanged: vm.updateCurrentGuess,
       onSubmitted: (_) async {
         final messenger = ScaffoldMessenger.of(context);
         await vm.submitGuess();
@@ -175,17 +233,14 @@ class GameScreen extends StatelessWidget {
             ? IconButton(
                 icon: const Icon(Icons.clear),
                 tooltip: 'Clear',
-                onPressed: () {
-                  vm.updateCurrentGuess('');
-                },
+                onPressed: () => vm.updateCurrentGuess(''),
               )
             : null,
       ),
     );
   }
 
-  /// Build the Submit and New Game buttons.  Captures the messenger
-  /// before awaiting to avoid using context across async gaps.
+  /// Submit / New Game buttons.
   Widget _buildActionButtons(GameViewModel vm, BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -234,24 +289,44 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Build the on-screen keyboard (visual only).
-  Widget _buildKeyboard() {
-    const keyboardRows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+  /// On-screen keyboard whose colours mirror the grid.
+  /// Priority: green (correct) > yellow (present) > grey (absent) > light grey (unknown).
+  Widget _buildKeyboard(GameViewModel vm) {
+    final statusByLetter = _computeKeyboardStatuses(vm.guesses);
+
+    Color statusToColor(TileStatus? status) {
+      if (status == null) return Colors.grey.shade300; // unknown
+      switch (status) {
+        case TileStatus.correct:
+          return Colors.green;
+        case TileStatus.present:
+          return Colors.amberAccent.shade700; // bright yellow
+        case TileStatus.absent:
+          return Colors.grey.shade500;
+      }
+    }
+
+    const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+
     return Column(
-      children: keyboardRows.map((row) {
+      children: rows.map((row) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: row.split('').map((letter) {
+              final st = statusByLetter[letter];
+              final bg = statusToColor(st);
               return Container(
                 width: 40,
                 height: 48,
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: bg,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.grey.shade400),
+                  border: Border.all(
+                    color: (st == null) ? Colors.grey.shade400 : bg,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -270,7 +345,25 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Build the end-of-game message.
+  /// Map from letter (A–Z) to highest-priority status seen so far across guesses.
+  Map<String, TileStatus> _computeKeyboardStatuses(List<Guess> guesses) {
+    final map = <String, TileStatus>{};
+
+    int rank(TileStatus s) =>
+        s == TileStatus.correct ? 3 : (s == TileStatus.present ? 2 : 1);
+
+    for (final g in guesses) {
+      for (final lr in g.letters) {
+        final key = lr.letter.toUpperCase();
+        final current = map[key];
+        if (current == null || rank(lr.status) > rank(current)) {
+          map[key] = lr.status;
+        }
+      }
+    }
+    return map;
+  }
+
   Widget _buildResultMessage(GameViewModel vm) {
     final message = vm.hasWon
         ? 'You won! 🎉'
@@ -278,44 +371,6 @@ class GameScreen extends StatelessWidget {
     return Text(
       message,
       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-    );
-  }
-
-  /// Build the top bar containing a back button and icons for statistics and
-  /// custom word settings.  The back button uses `Navigator.pushNamed` to
-  /// return to the home screen (`'/'`).
-  Widget _buildTopOptions(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Back button on the left
-        IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back',
-          onPressed: () {
-            Navigator.pushNamed(context, '/');
-          },
-        ),
-        // Stats and settings icons on the right
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.bar_chart),
-              tooltip: 'Statistics',
-              onPressed: () {
-                Navigator.pushNamed(context, '/stats');
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings),
-              tooltip: 'Set Word',
-              onPressed: () {
-                Navigator.pushNamed(context, '/settings');
-              },
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

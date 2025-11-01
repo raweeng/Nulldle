@@ -48,7 +48,8 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         initialRoute: '/',
         routes: {
-          '/': (_) => HomeScreen(),
+          // const constructors help consistency in tests
+          '/': (_) => const HomeScreen(),
           '/game': (_) => const GameScreen(),
           '/stats': (_) => const StatsPage(),
           '/settings': (_) => const SettingsPage(),

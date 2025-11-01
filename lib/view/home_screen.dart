@@ -3,7 +3,7 @@ import '../widgets/nulldle_text.dart';
 
 /// The landing screen showing the title, game blurb, and navigation buttons.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key}); // <- const constructor fixes the lint
+  const HomeScreen({super.key}); // const constructor
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +34,7 @@ class HomeScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(12.0),
               child: NulldleText(
-                // Use a standard hyphen between "five" and "letter" so substring tests match.
+                // Use standard hyphen so the test substring matches
                 'Guess the hidden five-letter word in just six tries! After each guess, tiles will light up, green means the letter is in the right spot, yellow means the letter is in the word but in the wrong spot, and grey means the letter is not in the word at all.',
                 size: 14.0,
               ),
