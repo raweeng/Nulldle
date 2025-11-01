@@ -1,31 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// Relative imports to the root-level model and viewmodel directories.
 import '../model/guess.dart';
 import '../model/tile_status.dart';
 import '../viewmodel/game_view_model.dart';
 
 /// The main play screen for the Nulldle/Wordle game.
-///
-/// This stateless widget consumes the [GameViewModel] provided higher up
-/// in the widget tree via [Provider]. It displays a 6×5 grid of previous
-/// guesses, an input row for the current guess, and controls to submit a
-/// guess or start a new game. When the game is over it shows a message
-/// revealing whether the player won or lost and the correct word.
-///
-/// The architecture follows MVVM: all game logic lives in the view model
-/// (see `game_view_model.dart`), so this widget merely reflects state and
-/// forwards user actions to the view model.
 class GameScreen extends StatelessWidget {
   const GameScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The game screen does not show an app bar so that it more closely
-      // resembles the original design. The application title appears
-      // only in the window chrome.
       backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -34,24 +20,18 @@ class GameScreen extends StatelessWidget {
             return Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // Top row with navigation options for statistics and setting the word.
                 _buildTopOptions(context),
                 const SizedBox(height: 8),
-                // The 6×5 grid of guesses and current guess
                 _buildGuessGrid(vm),
-                // Show result message when the game ends
                 if (vm.isGameOver) ...[
                   const SizedBox(height: 16),
                   _buildResultMessage(vm),
                 ],
                 const SizedBox(height: 24),
-                // Text field for entering guesses
                 _buildTextField(vm, context),
                 const SizedBox(height: 16),
-                // Row of action buttons
                 _buildActionButtons(vm, context),
                 const SizedBox(height: 24),
-                // On-screen keyboard showing letter layout
                 _buildKeyboard(),
               ],
             );
@@ -61,15 +41,12 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the 6×5 grid of tiles representing guesses.
   Widget _buildGuessGrid(GameViewModel vm) {
     final rows = <Widget>[];
     for (var i = 0; i < 6; i++) {
       if (i < vm.guesses.length) {
-        // Completed guess
         rows.add(_buildGuessRow(vm.guesses[i]));
       } else if (i == vm.guesses.length && !vm.isGameOver) {
-        // Current partial guess (border only)
         final letters = vm.currentGuess.padRight(5).split('');
         rows.add(Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -80,7 +57,6 @@ class GameScreen extends StatelessWidget {
           }),
         ));
       } else {
-        // Empty row
         rows.add(Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
@@ -94,7 +70,6 @@ class GameScreen extends StatelessWidget {
     return Column(children: rows);
   }
 
-  /// Builds a single row of tiles for a completed guess.
   Widget _buildGuessRow(Guess guess) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -104,8 +79,6 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds an individual tile showing a letter and its status. If
-  /// [borderOnly] is true, the tile is empty with just a border.
   Widget _buildTile(String letter, TileStatus status,
       {bool borderOnly = false}) {
     Color background;
@@ -141,14 +114,17 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the text field used to enter guesses. This version applies
-  /// custom styling to match the provided design, including a purple
-  /// border and a hint. The field updates the view model as the user
-  /// types and submits the guess when the user presses the return key.
-  /// It captures the ScaffoldMessenger before awaiting to avoid using
-  /// BuildContext across an async gap.
+  /// Text field that uses a controller to reflect the current guess and shows
+  /// a clear (×) button when there is text.  Pressing the clear button
+  /// resets the current guess in the view model, and the text field
+  /// rebuilds with an empty string.
   Widget _buildTextField(GameViewModel vm, BuildContext context) {
+    final controller = TextEditingController(text: vm.currentGuess);
+    controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: controller.text.length),
+    );
     return TextField(
+      controller: controller,
       maxLength: 5,
       onChanged: (v) => vm.updateCurrentGuess(v),
       onSubmitted: (_) async {
@@ -176,15 +152,19 @@ class GameScreen extends StatelessWidget {
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        suffixIcon: vm.currentGuess.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear),
+                tooltip: 'Clear',
+                onPressed: () {
+                  vm.updateCurrentGuess('');
+                },
+              )
+            : null,
       ),
     );
   }
 
-  /// Builds the row of action buttons (Submit and New Game). The buttons
-  /// are styled with a white background and pink text to match the
-  /// reference design. After submitting, this function checks for
-  /// an error and displays it via SnackBar.  It captures the
-  /// ScaffoldMessenger before awaiting to avoid using BuildContext across an async gap.
   Widget _buildActionButtons(GameViewModel vm, BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -235,10 +215,6 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the on‑screen keyboard. It displays three rows of keys
-  /// corresponding to the QWERTY layout. The keys are styled as light
-  /// grey rounded rectangles. Currently, the keyboard is purely visual
-  /// and does not handle taps; input is handled via the text field.
   Widget _buildKeyboard() {
     const keyboardRows = [
       'QWERTYUIOP',
@@ -278,8 +254,6 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the end-of-game message. Shows whether the player won or lost and
-  /// reveals the correct target word when necessary.
   Widget _buildResultMessage(GameViewModel vm) {
     final message = vm.hasWon
         ? 'You won! 🎉'
@@ -291,8 +265,8 @@ class GameScreen extends StatelessWidget {
   }
 
   /// Builds the top bar containing navigation options for statistics and
-  /// setting a custom word. This replaces the app bar from the original
-  /// design, providing quick access to the stats page and settings.
+  /// setting a custom word.  This replaces an AppBar to better match
+  /// the original design.
   Widget _buildTopOptions(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
