@@ -148,7 +148,7 @@ class GameViewModel extends ChangeNotifier {
       letterCounts[letter] = (letterCounts[letter] ?? 0) + 1;
     }
 
-    // First pass: mark correct letters in the correct positions.
+    // First pass: correct letters in the correct positions.
     for (var i = 0; i < 5; i++) {
       final letter = guessLetters[i];
       if (letter == target[i]) {
@@ -157,16 +157,13 @@ class GameViewModel extends ChangeNotifier {
         );
         letterCounts[letter] = letterCounts[letter]! - 1;
       } else {
-        results.add(const LetterResult(
-          letter: '',
-          status: TileStatus.absent,
-        ));
+        results.add(const LetterResult(letter: '', status: TileStatus.absent));
       }
     }
 
-    // Second pass: mark letters present in the word but in the wrong position.
+    // Second pass: present letters (correct letter, wrong position).
     for (var i = 0; i < 5; i++) {
-      if (results[i].letter.isNotEmpty) continue; // Already marked correct
+      if (results[i].letter.isNotEmpty) continue;
       final letter = guessLetters[i];
       if (letterCounts.containsKey(letter) && letterCounts[letter]! > 0) {
         results[i] = LetterResult(

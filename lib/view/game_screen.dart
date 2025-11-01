@@ -34,20 +34,24 @@ class GameScreen extends StatelessWidget {
             return Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                // Top row with navigation options for statistics and setting the word.
+                _buildTopOptions(context),
+                const SizedBox(height: 8),
                 // The 6×5 grid of guesses and current guess
                 _buildGuessGrid(vm),
+                // Show result message when the game ends
+                if (vm.isGameOver) ...[
+                  const SizedBox(height: 16),
+                  _buildResultMessage(vm),
+                ],
                 const SizedBox(height: 24),
-                // Show result message when game is over
-                vm.isGameOver
-                    ? _buildResultMessage(vm)
-                    : const SizedBox.shrink(),
                 // Text field for entering guesses
                 _buildTextField(vm, context),
                 const SizedBox(height: 16),
                 // Row of action buttons
                 _buildActionButtons(vm, context),
                 const SizedBox(height: 24),
-                // On‑screen keyboard showing letter layout
+                // On-screen keyboard showing letter layout
                 _buildKeyboard(),
               ],
             );
@@ -57,9 +61,7 @@ class GameScreen extends StatelessWidget {
     );
   }
 
-  /// Builds the 6×5 grid of tiles representing guesses. Completed guesses
-  /// show their colour statuses; the current guess shows as border-only tiles;
-  /// unused rows show empty tiles.
+  /// Builds the 6×5 grid of tiles representing guesses.
   Widget _buildGuessGrid(GameViewModel vm) {
     final rows = <Widget>[];
     for (var i = 0; i < 6; i++) {
@@ -82,7 +84,9 @@ class GameScreen extends StatelessWidget {
         rows.add(Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
-              5, (_) => _buildTile('', TileStatus.absent, borderOnly: true)),
+            5,
+            (_) => _buildTile('', TileStatus.absent, borderOnly: true),
+          ),
         ));
       }
       rows.add(const SizedBox(height: 8));
@@ -141,16 +145,13 @@ class GameScreen extends StatelessWidget {
   /// custom styling to match the provided design, including a purple
   /// border and a hint. The field updates the view model as the user
   /// types and submits the guess when the user presses the return key.
-  ///
-  /// It captures the [ScaffoldMessenger] before awaiting an async call to
-  /// avoid using the [BuildContext] across an async gap, per the
-  /// `use_build_context_synchronously` lint.
+  /// It captures the ScaffoldMessenger before awaiting to avoid using
+  /// BuildContext across an async gap.
   Widget _buildTextField(GameViewModel vm, BuildContext context) {
     return TextField(
       maxLength: 5,
       onChanged: (v) => vm.updateCurrentGuess(v),
       onSubmitted: (_) async {
-        // Capture messenger first; don't use context after an await
         final messenger = ScaffoldMessenger.of(context);
         await vm.submitGuess();
         final error = vm.errorMessage;
@@ -183,8 +184,7 @@ class GameScreen extends StatelessWidget {
   /// are styled with a white background and pink text to match the
   /// reference design. After submitting, this function checks for
   /// an error and displays it via SnackBar.  It captures the
-  /// [ScaffoldMessenger] before awaiting to avoid using the context
-  /// across an async gap.
+  /// ScaffoldMessenger before awaiting to avoid using BuildContext across an async gap.
   Widget _buildActionButtons(GameViewModel vm, BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -287,6 +287,31 @@ class GameScreen extends StatelessWidget {
     return Text(
       message,
       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    );
+  }
+
+  /// Builds the top bar containing navigation options for statistics and
+  /// setting a custom word. This replaces the app bar from the original
+  /// design, providing quick access to the stats page and settings.
+  Widget _buildTopOptions(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.bar_chart),
+          tooltip: 'Statistics',
+          onPressed: () {
+            Navigator.pushNamed(context, '/stats');
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.settings),
+          tooltip: 'Set Word',
+          onPressed: () {
+            Navigator.pushNamed(context, '/settings');
+          },
+        ),
+      ],
     );
   }
 }
